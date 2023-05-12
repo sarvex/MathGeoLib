@@ -4,20 +4,18 @@ def find_files(directory, pattern):
     for root, dirs, files in os.walk(directory):
         for basename in files:
             if fnmatch.fnmatch(basename, pattern):
-                filename = os.path.join(root, basename)
-                yield filename
+                yield os.path.join(root, basename)
 
 symbols = {}
 
 const_swap_regex = re.compile('\\b([\\w:]*)\\s+const')
 
 def swapConsts(str):
-  while True:
-    ret = const_swap_regex.search(str)
-    if ret:
-      str = str[0:ret.start(0)] + 'const ' + ret.group(1) + str[ret.end(0):]
-    else:
-      return str
+    while True:
+        if ret := const_swap_regex.search(str):
+            str = f'{str[:ret.start(0)]}const {ret.group(1)}{str[ret.end(0):]}'
+        else:
+            return str
 
 def canonicalizeSymbolName(symbol):
   symbol = symbol.replace('public: ', '')
@@ -87,19 +85,19 @@ def extractCode(filename):
       break
 
 def findGccPrevFuncName(code, pos):
-  while pos >= 0:
+    while pos >= 0:
 #    pos = code.rfind('****', 0, pos)
-    pos = code.rfind('.globl', 0, pos)
-    if pos == -1:
-      return ''
-    funcName = code[pos+len('.globl'):code.find('\n', pos)].strip()
-    if len(funcName) > 1:
-      if CLANG_FORMAT:
-        undecorated = subprocess.check_output(['c++filt', '_' + funcName]).strip()
-      else:
-        undecorated = subprocess.check_output(['c++filt', funcName]).strip()
-      undecorated = canonicalizeSymbolName(undecorated)
-      return undecorated
+        pos = code.rfind('.globl', 0, pos)
+        if pos == -1:
+          return ''
+        funcName = code[pos+len('.globl'):code.find('\n', pos)].strip()
+        if len(funcName) > 1:
+            if CLANG_FORMAT:
+                undecorated = subprocess.check_output(['c++filt', f'_{funcName}']).strip()
+            else:
+                undecorated = subprocess.check_output(['c++filt', funcName]).strip()
+            undecorated = canonicalizeSymbolName(undecorated)
+            return undecorated
 
 #gcc_label_re = re.compile('\\s*\\d+\\s+([A-Z0-9]+):')
 #gcc_label2_re = re.compile('\\s*\\d+\\s+\.(.*)')
@@ -147,12 +145,9 @@ def extractGccCode(filename):
 platformId = sys.argv[1]
 
 def writeJsonCodeFile(outfile):
-  codefile = {}
-  codefile['platform'] = platformId
-  codefile['symbols'] = symbols
-
-  data = json.dumps(codefile, sort_keys=True, indent=2, separators=(',', ': '))
-  open(outfile, 'wb').write(data)
+    codefile = {'platform': platformId, 'symbols': symbols}
+    data = json.dumps(codefile, sort_keys=True, indent=2, separators=(',', ': '))
+    open(outfile, 'wb').write(data)
 
 CLANG_FORMAT = '--clang' in sys.argv
 
